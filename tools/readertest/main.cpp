@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QTextStream>
+#include <QTimer>
 
 #include "core/DocumentManager.h"
 #include "core/MuPDFDocument.h"
@@ -54,8 +55,15 @@ int main(int argc, char *argv[])
         return 1;
     }
     QTextStream out(&report);
-    out << "title: " << doc->title() << "\n";
-    out << "pages: " << doc->pageCount() << "\n";
+    auto trace = [&](const QString &line) {
+        out << line << "\n";
+        out.flush();
+        qWarning().noquote() << "[TRACE]" << line;
+    };
+
+    trace(QStringLiteral("title: %1").arg(doc->title()));
+    trace(QStringLiteral("pages: %1").arg(doc->pageCount()));
+    trace(QStringLiteral("step-mgr-open-ok"));
 
     QDir outDir(QDir::current().filePath("page_export"));
     if (!outDir.exists()) {
@@ -65,22 +73,34 @@ int main(int argc, char *argv[])
     const int n = qMin(doc->pageCount(), 10);
     for (int i = 0; i < n; ++i) {
         QImage img = doc->renderPage(i, 1.0);
+        trace(QStringLiteral("render %1 done w=%2 h=%3 null=%4").arg(i).arg(img.width()).arg(img.height()).arg(img.isNull()));
         const QString name = outDir.filePath(QStringLiteral("page_%1.png").arg(i + 1, 3, 10, QLatin1Char('0')));
         if (img.isNull()) {
             qWarning() << "page" << i << "render failed";
-            out << "page " << i << ": RENDER FAILED\n";
+            trace(QStringLiteral("page %1 RENDER FAILED").arg(i));
             continue;
         }
         if (!img.save(name)) {
             qWarning() << "save failed:" << name;
-            out << "page " << i << ": SAVE FAILED\n";
+            trace(QStringLiteral("page %1 SAVE FAILED").arg(i));
             return 1;
         }
-        out << "page " << i << " saved " << name << " " << img.width() << "x" << img.height() << "\n";
+        trace(QStringLiteral("page %1 saved").arg(i));
         const QString txt = doc->pageText(i);
-        out << "page " << i << " text(first 80): " << txt.left(80).replace(QLatin1Char('\n'), QLatin1Char(' ')) << "\n";
+        trace(QStringLiteral("page %1 textlen=%2").arg(i).arg(txt.size()));
     }
 
+    {
+        const auto outline = doc->outline();
+        trace(QStringLiteral("outline count: %1").arg(outline.size()));
+        for (const auto &oi : outline) {
+            trace(QStringLiteral("  [%1] %2 -> page %3").arg(oi.level).arg(oi.title).arg(oi.page));
+        }
+    }
+    trace(QStringLiteral("RENDER/TEXT/OUTLINE OK, idle-waiting 60s..."));
+    QTimer::singleShot(60000, &app, &QCoreApplication::quit);
+    const int rc = app.exec();
+    trace(QStringLiteral("GUI-idle exited rc=%1").arg(rc));
     report.close();
-    return 0;
+    return rc;
 }

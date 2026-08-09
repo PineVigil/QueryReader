@@ -7,6 +7,7 @@
 #include "core/Document.h"
 
 struct fz_context;
+struct fz_stream;
 struct fz_document;
 
 // 基于 MuPDF 的通用文档：支持 PDF、EPUB、Office、XPS、CBZ、MOBI 等 MuPDF 可识别的格式。
@@ -28,6 +29,7 @@ public:
 
 private:
     fz_context *m_context = nullptr;
+    fz_stream *m_stream = nullptr;
     fz_document *m_document = nullptr;
     QString m_filePath;
     QString m_title;

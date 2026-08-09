@@ -17,17 +17,18 @@ MuPDFDocument::MuPDFDocument(QString filePath, QString magic)
         return;
     }
     fz_register_document_handlers(m_context);
+
+    const std::wstring wide = m_filePath.toStdWString();
+    const QByteArray magicBytes = magic.toLatin1();
+
     fz_try(m_context)
     {
-        const std::wstring wide = m_filePath.toStdWString();
-        fz_stream *stream = fz_open_file_w(m_context, wide.c_str());
-        if (!stream) {
+        m_stream = fz_open_file_w(m_context, wide.c_str());
+        if (!m_stream) {
             fz_throw(m_context, FZ_ERROR_GENERIC, "cannot open file: %S", wide.c_str());
         }
-        const QByteArray magicBytes = magic.toLatin1();
         m_document = fz_open_document_with_stream(
-            m_context, magic.isEmpty() ? nullptr : magicBytes.constData(), stream);
-        fz_drop_stream(m_context, stream);
+            m_context, magic.isEmpty() ? nullptr : magicBytes.constData(), m_stream);
         if (!m_document) {
             fz_throw(m_context, FZ_ERROR_GENERIC, "failed to open document");
         }
@@ -45,6 +46,9 @@ MuPDFDocument::~MuPDFDocument()
 {
     if (m_document && m_context) {
         fz_drop_document(m_context, m_document);
+    }
+    if (m_stream && m_context) {
+        fz_drop_stream(m_context, m_stream);
     }
     if (m_context) {
         fz_drop_context(m_context);
@@ -181,12 +185,7 @@ QVector<OutlineItem> MuPDFDocument::outline() const
 
     fz_try(m_context)
     {
-        fz_outline_iterator *iter = fz_new_outline_iterator(m_context, m_document);
-        if (!iter) {
-            return items;
-        }
-        fz_outline *root = fz_load_outline_from_iterator(m_context, iter);
-        fz_drop_outline_iterator(m_context, iter);
+        fz_outline *root = fz_load_outline(m_context, m_document);
         if (!root) {
             return items;
         }
