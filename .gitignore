@@ -1,0 +1,38 @@
+# 文档（本地学习用，不上传）
+doc/
+docs/
+
+# 第三方库（体积过大且含无法上传的 .lib，clone 后按 README 自行获取 MuPDF）
+third_party/
+
+# CMake 构建产物
+build/
+CMakeCache.txt
+
+# 发布/部署产物
+dist/
+dist_setup/
+release/
+*.zip
+
+# 测试输出
+tools/export-test/
+report.txt
+page_export/
+
+# 编译中间文件
+*.obj
+*.pdb
+*.lib
+*.exp
+*.bsc
+*.ilk
+
+# Qt / VS 用户文件
+*.user
+*.suo
+.vs/
+
+# 系统文件
+Thumbs.db
+Desktop.ini
