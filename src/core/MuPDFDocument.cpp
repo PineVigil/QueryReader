@@ -13,12 +13,12 @@ MuPDFDocument::MuPDFDocument(QString filePath, QString magic)
 {
     m_context = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
     if (!m_context) {
+        m_lastError = QStringLiteral("无法创建 MuPDF 上下文");
         return;
     }
     fz_register_document_handlers(m_context);
     fz_try(m_context)
     {
-        // 用 wide 路径（fz_open_file_w）避免中文等非 ANSI 路径失败
         const std::wstring wide = m_filePath.toStdWString();
         fz_stream *stream = fz_open_file_w(m_context, wide.c_str());
         if (!stream) {
@@ -27,7 +27,10 @@ MuPDFDocument::MuPDFDocument(QString filePath, QString magic)
         const QByteArray magicBytes = magic.toLatin1();
         m_document = fz_open_document_with_stream(
             m_context, magic.isEmpty() ? nullptr : magicBytes.constData(), stream);
-        fz_drop_stream(m_context, stream); // 调用方保留所有权，需自行释放
+        fz_drop_stream(m_context, stream);
+        if (!m_document) {
+            fz_throw(m_context, FZ_ERROR_GENERIC, "failed to open document");
+        }
         m_title = QFileInfo(m_filePath).completeBaseName();
     }
     fz_catch(m_context)
@@ -40,7 +43,7 @@ MuPDFDocument::MuPDFDocument(QString filePath, QString magic)
 
 MuPDFDocument::~MuPDFDocument()
 {
-    if (m_document) {
+    if (m_document && m_context) {
         fz_drop_document(m_context, m_document);
     }
     if (m_context) {
@@ -55,7 +58,7 @@ QString MuPDFDocument::title() const
 
 int MuPDFDocument::pageCount() const
 {
-    if (!m_document) {
+    if (!m_document || !m_context) {
         return 0;
     }
     int n = 0;
@@ -72,14 +75,13 @@ int MuPDFDocument::pageCount() const
 
 QImage MuPDFDocument::renderPage(int page, double scale) const
 {
-    if (!m_document || page < 0 || page >= pageCount()) {
+    if (!m_document || !m_context || page < 0 || page >= pageCount()) {
         return QImage();
     }
 
     QImage result;
     fz_try(m_context)
     {
-        // scale 为 UI 缩放系数 (1.0=100%)，按 150 DPI 渲染保证清晰
         const float zoom = static_cast<float>(scale) * 150.0f / 72.0f;
         const fz_matrix ctm = fz_scale(zoom, zoom);
 
@@ -118,7 +120,7 @@ QImage MuPDFDocument::renderPage(int page, double scale) const
 
 QString MuPDFDocument::pageText(int page) const
 {
-    if (!m_document || page < 0 || page >= pageCount()) {
+    if (!m_document || !m_context || page < 0 || page >= pageCount()) {
         return QString();
     }
 
@@ -127,12 +129,11 @@ QString MuPDFDocument::pageText(int page) const
     {
         fz_stext_options opts;
         fz_init_stext_options(m_context, &opts);
-        // 让 stext 保留必要空白，便于搜索/复制
         opts.flags |= FZ_STEXT_PRESERVE_WHITESPACE;
         fz_stext_page *stext = fz_new_stext_page_from_page_number(
             m_context, m_document, page, &opts);
         if (!stext) {
-            fz_throw(m_context, FZ_ERROR_GENERIC, "failed to extract text page %d", page);
+            return QString();
         }
         fz_buffer *buf = fz_new_buffer(m_context, 1024);
         fz_output *out = fz_new_output_with_buffer(m_context, buf);
@@ -151,7 +152,6 @@ QString MuPDFDocument::pageText(int page) const
 
 namespace {
 
-// 递归展开 fz_outline 树为平铺列表
 void flattenOutline(QVector<OutlineItem> &items, const fz_outline *node, int level, int &depth)
 {
     for (; node; node = node->next) {
@@ -175,7 +175,7 @@ void flattenOutline(QVector<OutlineItem> &items, const fz_outline *node, int lev
 QVector<OutlineItem> MuPDFDocument::outline() const
 {
     QVector<OutlineItem> items;
-    if (!m_document) {
+    if (!m_document || !m_context) {
         return items;
     }
 
@@ -183,12 +183,12 @@ QVector<OutlineItem> MuPDFDocument::outline() const
     {
         fz_outline_iterator *iter = fz_new_outline_iterator(m_context, m_document);
         if (!iter) {
-            fz_throw(m_context, FZ_ERROR_GENERIC, "no outline");
+            return items;
         }
         fz_outline *root = fz_load_outline_from_iterator(m_context, iter);
         fz_drop_outline_iterator(m_context, iter);
         if (!root) {
-            fz_throw(m_context, FZ_ERROR_GENERIC, "no outline items");
+            return items;
         }
 
         int depth = 0;

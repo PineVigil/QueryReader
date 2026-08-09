@@ -107,16 +107,21 @@ void MainWindow::setupUi()
 
 void MainWindow::openPath(const QString &filePath)
 {
-    auto doc = m_manager->openFile(filePath);
-    if (!doc) {
-        statusBar()->showMessage(tr("无法打开该文档：%1").arg(filePath), 5000);
-        return;
-    }
+    try {
+        auto doc = m_manager->openFile(filePath);
+        if (!doc) {
+            statusBar()->showMessage(tr("无法打开该文档：%1").arg(filePath), 5000);
+            return;
+        }
 
-    m_view->setDocument(doc);
-    setWindowTitle(QStringLiteral("%1 - QueryReader").arg(doc->title()));
-    populateOutline();
-    statusBar()->showMessage(tr("已打开：%1（%2 页）").arg(doc->title()).arg(doc->pageCount()));
+        m_view->setDocument(doc);
+        setWindowTitle(QStringLiteral("%1 - QueryReader").arg(doc->title()));
+        populateOutline();
+        statusBar()->showMessage(
+            tr("已打开：%1（%2 页）").arg(doc->title()).arg(doc->pageCount()));
+    } catch (...) {
+        statusBar()->showMessage(tr("打开文档时出错：%1").arg(filePath), 5000);
+    }
 }
 
 void MainWindow::openDocument()

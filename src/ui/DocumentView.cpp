@@ -90,6 +90,10 @@ void DocumentView::renderCurrent()
         return;
     }
     QImage image = m_doc->renderPage(m_currentPage, m_zoom);
+    if (image.isNull()) {
+        m_pageLabel->setText(tr("无法渲染此页"));
+        return;
+    }
     m_pageLabel->setPixmap(QPixmap::fromImage(image));
 }
 
