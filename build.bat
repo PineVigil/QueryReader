@@ -26,6 +26,23 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [3/3] Copying VC++ runtime DLLs to dist...
+REM Qt and MuPDF depend on these; without them the exe crashes on startup
+set SYS_DLLS=vcruntime140.dll msvcp140.dll vcruntime140_1.dll
+for %%d in (%SYS_DLLS%) do (
+    if not exist "%BUILD_DIR%\Release\%%d" (
+        if exist "%QT_PATH%\bin\%%d" (
+            copy "%QT_PATH%\bin\%%d" "%BUILD_DIR%\Release\" >nul 2>&1
+            echo   copied %%d from Qt
+        ) else if exist "C:\Windows\System32\%%d" (
+            copy "C:\Windows\System32\%%d" "%BUILD_DIR%\Release\" >nul 2>&1
+            echo   copied %%d from System32
+        ) else (
+            echo   WARNING: %%d not found
+        )
+    )
+)
+
 echo.
 echo [DONE] Executable: "%BUILD_DIR%\Release\QueryReader.exe"
 endlocal
