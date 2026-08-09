@@ -119,7 +119,7 @@ target_link_libraries(ReaderTest PRIVATE
 # 引导下载器：分发用，从 GitHub Release 下载 zip 安装包
 find_package(Qt6 6.5 REQUIRED COMPONENTS Network)
 
-add_executable(QueryReaderSetup
+add_executable(QueryReaderSetup WIN32
     tools/downloader/main.cpp
     tools/downloader/Downloader.cpp
     tools/downloader/Downloader.h

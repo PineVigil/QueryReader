@@ -1,20 +1,51 @@
 #include <QApplication>
-#include <QComboBox>
+#include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QObject>
+#include <QProcess>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QVBoxLayout>
 
 #include "Downloader.h"
+
+static bool createDesktopShortcut(const QString &exePath, QString *error)
+{
+    const QString desktop =
+        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    const QString lnkPath = desktop + QStringLiteral("\\QueryReader.lnk");
+
+    // PowerShell: 用 WScript.Shell COM 对象创建 .lnk
+    QProcess proc;
+    proc.start(QStringLiteral("powershell"),
+               {QStringLiteral("-NoProfile"), QStringLiteral("-Command"),
+                QStringLiteral(
+                    "$s=(New-Object -COM WScript.Shell).CreateShortcut('%1');"
+                    "$s.TargetPath='%2';$s.WorkingDirectory='%3';"
+                    "$s.Description='QueryReader 轻量阅读器';$s.Save()")
+                    .arg(lnkPath, QDir::toNativeSeparators(exePath),
+                         QDir::toNativeSeparators(QFileInfo(exePath).path()))});
+    if (!proc.waitForFinished(5000) || proc.exitCode() != 0) {
+        if (error) {
+            *error = QStringLiteral("创建快捷方式失败");
+        }
+        return false;
+    }
+    return true;
+}
+
+static const QString kDownloadUrl =
+    QStringLiteral("https://github.com/PineVigil/QueryReader/"
+                   "releases/latest/download/QueryReader-win64.zip");
 
 int main(int argc, char *argv[])
 {
@@ -33,6 +64,7 @@ int main(int argc, char *argv[])
     desc->setWordWrap(true);
     layout->addWidget(desc);
 
+    // 安装目录
     auto *dirRow = new QHBoxLayout;
     auto *dirLabel = new QLabel(QStringLiteral("安装目录:"), &dlg);
     auto *dirEdit = new QLineEdit(
@@ -53,32 +85,42 @@ int main(int argc, char *argv[])
         }
     });
 
-    // 下载地址（固定指向 GitHub Release 的 zip 附件，用户无需修改即可直接安装）
-    auto *urlRow = new QHBoxLayout;
-    auto *urlLabel = new QLabel(QStringLiteral("下载源:"), &dlg);
-    auto *urlEdit = new QLineEdit(
-        QStringLiteral("https://github.com/PineVigil/QueryReader/releases/latest/download/QueryReader-win64.zip"),
-        &dlg);
-    urlEdit->setPlaceholderText(QStringLiteral("https://github.com/PineVigil/QueryReader/releases/latest/download/QueryReader-win64.zip"));
-    urlRow->addWidget(urlLabel);
-    urlRow->addWidget(urlEdit, 1);
-    layout->addLayout(urlRow);
-
+    // 进度条
     auto *prog = new QProgressBar(&dlg);
     prog->setRange(0, 100);
     prog->setValue(0);
     prog->setTextVisible(true);
     layout->addWidget(prog);
 
+    // 状态
     auto *statusLabel = new QLabel(QStringLiteral("等待开始…"), &dlg);
     layout->addWidget(statusLabel);
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
-    layout->addWidget(buttons);
+    // 选项
+    auto *launchCheck = new QCheckBox(QStringLiteral("安装完成后启动 QueryReader"), &dlg);
+    launchCheck->setChecked(true);
+    layout->addWidget(launchCheck);
+
+    auto *shortcutCheck = new QCheckBox(QStringLiteral("创建桌面快捷方式"), &dlg);
+    shortcutCheck->setChecked(true);
+    layout->addWidget(shortcutCheck);
+
+    // 按钮
     auto *installBtn = new QPushButton(QStringLiteral("开始安装"), &dlg);
-    buttons->addButton(installBtn, QDialogButtonBox::ActionRole);
+    auto *closeBtn = new QPushButton(QStringLiteral("关闭"), &dlg);
+    auto *btnRow = new QHBoxLayout;
+    btnRow->addStretch();
+    btnRow->addWidget(closeBtn);
+    btnRow->addWidget(installBtn);
+    layout->addLayout(btnRow);
 
     Downloader downloader;
+
+    // 关闭 = 中止下载 + 删临时文件 + 退出
+    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, [&downloader, &dlg]() {
+        downloader.cancel();
+        dlg.reject();
+    });
 
     // 下载进度
     QObject::connect(&downloader, &Downloader::progress, &dlg,
@@ -96,17 +138,20 @@ int main(int argc, char *argv[])
                          }
                      });
 
-    // 下载完成：解压 → 启动
+    // 下载完成
     QObject::connect(&downloader, &Downloader::finished, &dlg,
-                     [&dlg, &downloader, dirEdit, prog, statusLabel, installBtn, dirBtn](
-                         bool ok, const QString &message) {
+                     [&dlg, &downloader, dirEdit, prog, statusLabel, installBtn, closeBtn,
+                      launchCheck, shortcutCheck](bool ok, const QString &message) {
                          installBtn->setEnabled(true);
+                         closeBtn->setEnabled(true);
+
                          if (!ok) {
                              statusLabel->setText(message);
                              QMessageBox::warning(&dlg, QStringLiteral("下载失败"), message);
                              return;
                          }
-                         const QString zipFile = message; // finished(true) 时 message 是临时 zip 路径
+
+                         const QString zipFile = message;
                          const QString destDir = dirEdit->text();
 
                          statusLabel->setText(QStringLiteral("正在解压…"));
@@ -116,42 +161,62 @@ int main(int argc, char *argv[])
                              statusLabel->setText(error);
                              return;
                          }
-                         QFile::remove(zipFile); // 清理临时包
+                         QFile::remove(zipFile);
 
-                         const QString exePath = destDir + QStringLiteral("/QueryReader.exe");
-                         if (!downloader.launch(exePath, &error)) {
-                             QMessageBox::information(
-                                 &dlg, QStringLiteral("安装完成"),
-                                 QStringLiteral("安装完成：%1\n（未能自动启动：%2）")
-                                     .arg(destDir)
-                                     .arg(error));
+                         const QString exePath =
+                             destDir + QStringLiteral("/QueryReader.exe");
+
+                         // 桌面快捷方式
+                         if (shortcutCheck->isChecked()) {
+                             QString scErr;
+                             createDesktopShortcut(exePath, &scErr);
+                         }
+
+                         // 启动
+                         if (launchCheck->isChecked()) {
+                             QString launchErr;
+                             if (!downloader.launch(exePath, &launchErr)) {
+                                 QMessageBox::information(
+                                     &dlg, QStringLiteral("安装完成"),
+                                     QStringLiteral("安装完成：%1\n（未能自动启动：%2）")
+                                         .arg(destDir, launchErr));
+                             } else {
+                                 statusLabel->setText(
+                                     QStringLiteral("安装完成：%1").arg(destDir));
+                                 QMessageBox::information(
+                                     &dlg, QStringLiteral("安装完成"),
+                                     QStringLiteral("QueryReader 已安装并启动。"));
+                             }
                          } else {
                              statusLabel->setText(
                                  QStringLiteral("安装完成：%1").arg(destDir));
-                             QMessageBox::information(&dlg, QStringLiteral("安装完成"),
-                                                      QStringLiteral("QueryReader 已安装并启动。"));
+                             QMessageBox::information(
+                                 &dlg, QStringLiteral("安装完成"),
+                                 QStringLiteral("安装完成：%1\nQueryReader 未启动。")
+                                     .arg(destDir));
                          }
+
                          prog->setValue(prog->maximum());
                      });
 
     // 开始安装
     QObject::connect(installBtn, &QPushButton::clicked, &dlg,
-                     [&dlg, urlEdit, dirEdit, prog, statusLabel, installBtn, &downloader]() {
-                         const QString url = urlEdit->text().trimmed();
+                     [&dlg, dirEdit, prog, statusLabel, installBtn, closeBtn, &downloader]() {
                          const QString destDir = dirEdit->text().trimmed();
-                         if (url.isEmpty()) {
+                         if (destDir.isEmpty()) {
                              QMessageBox::warning(&dlg, QStringLiteral("提示"),
-                                                  QStringLiteral("请填写下载源地址。"));
+                                                  QStringLiteral("请选择安装目录。"));
                              return;
                          }
                          installBtn->setEnabled(false);
+                         closeBtn->setEnabled(false);
                          prog->setValue(0);
                          statusLabel->setText(QStringLiteral("准备下载…"));
 
                          const QString tempFile =
                              QDir::temp().filePath(QStringLiteral("queryreader_download.zip"));
                          QFile::remove(tempFile);
-                         downloader.download(url, tempFile);
+                         downloader.download(kDownloadUrl, tempFile);
                      });
 
     dlg.exec();
