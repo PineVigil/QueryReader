@@ -21,7 +21,7 @@ set(CMAKE_PREFIX_PATH
     ${CMAKE_PREFIX_PATH}
 )
 
-project(QueryReader VERSION 0.1.0 LANGUAGES C CXX)
+project(QueryReader VERSION 1.1.0 LANGUAGES C CXX)
 
 # 第三方库：cmark 已被 MuPDF 内置的 cmark-gfm 取代（移除独立的 cmark 链接，避免符号冲突）
 
@@ -131,18 +131,22 @@ target_link_libraries(ReaderTest PRIVATE
     ${MUPDF_LIB_DIR}/libzxing.lib
 )
 
-# 引导下载器：分发用，从 GitHub Release 下载 zip 安装包
-find_package(Qt6 6.5 REQUIRED COMPONENTS Network)
-
+# 引导下载器：分发用，从 GitHub Release 下载 zip 安装包（纯 Win32，单文件零依赖）
 add_executable(QueryReaderSetup WIN32
     tools/downloader/main.cpp
-    tools/downloader/Downloader.cpp
-    tools/downloader/Downloader.h
 )
 
+# 静态链接 MSVC 运行库（/MT），让下载器成为真正零依赖的单文件
+if(MSVC)
+    target_compile_options(QueryReaderSetup PRIVATE /MT)
+    target_link_options(QueryReaderSetup PRIVATE /NODEFAULTLIB:msvcrt)
+endif()
+
 target_link_libraries(QueryReaderSetup PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Network
+    wininet
+    comctl32
+    shell32
+    ole32
+    user32
+    gdi32
 )

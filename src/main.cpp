@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
     app.setApplicationName("QueryReader");
-    app.setApplicationVersion("0.1.0");
+    app.setApplicationVersion("1.1.0");
 
     QCommandLineParser parser;
     parser.setApplicationDescription("QueryReader - 轻量阅读器");
