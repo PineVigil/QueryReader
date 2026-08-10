@@ -134,6 +134,8 @@ target_link_libraries(ReaderTest PRIVATE
 # 引导下载器：分发用，从 GitHub Release 下载 zip 安装包（纯 Win32，单文件零依赖）
 add_executable(QueryReaderSetup WIN32
     tools/downloader/main.cpp
+    tools/downloader/resource.rc
+    tools/downloader/QueryReaderSetup.ico
 )
 
 # 静态链接 MSVC 运行库（/MT），让下载器成为真正零依赖的单文件
