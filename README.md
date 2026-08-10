@@ -23,7 +23,7 @@
 环境要求：
 
 - Visual Studio 2022（含 C++ 工作负载与 CMake 工具）
-- Qt 6.5.3 msvc2019_64（`D:\app\qt\6.5.3\msvc2019_64`）
+- Qt 6.5.3 msvc2019_64（本机示例 `D:\app\qt\6.5.3\msvc2019_64`；实际位置在项目根 `paths.txt` 的 `QT_PREFIX` 里配置）
 - MuPDF 1.28 静态库已预编译（见 `third_party/mupdf`，含 `platform/win32` 的 VS 工程）
 
 一键构建：
