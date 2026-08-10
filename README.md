@@ -91,6 +91,26 @@ build\Release\ReaderTest.exe test-data\sample_book.epub
 3. 把 zip 传到 GitHub Release（或自己的服务器）
 4. 将上面的 release 下载链接发给用户，配合 `QueryReaderSetup.exe` 使用
 
+### v1.1.0 起：下载器是单文件 exe（无需任何附加文件）
+
+从 **v1.1.0** 开始，`QueryReaderSetup.exe` 已重写为纯 Win32 程序：
+
+- **零依赖**：不依赖 Qt / 任何第三方 DLL，只链接系统自带库（WININET/COMCTL32/SHELL32 等）
+- **单文件**：产物 `build\Release\QueryReaderSetup.exe` 仅约 140KB，可单独分发
+- **静态运行库**：用 `/MT` 静态链接 MSVC 运行库，目标机器无需预装 VC++ 运行库
+
+**下载器的发布方式**（与旧版不同）：
+
+1. 构建后把 `QueryReaderSetup.exe` 直接复制到 `dist_setup\`
+2. 该目录只需这一个文件，打包 zip（`QueryReaderSetup-win64.zip` 约 70KB）
+3. 上传到 GitHub Release（v1.1.0 起随主程序一起上传）
+4. 下载器内固定下载源仍为
+   `https://github.com/PineVigil/QueryReader/releases/latest/download/QueryReader-win64.zip`，
+   `latest` 自动指向最新 Release，**下载器本身无需随版本更新**
+
+> 注：下方旧「发布流程」中的 `windeployqt` 步骤只适用于**主程序包**
+> （QueryReader 仍是 Qt 动态库）；下载器包已不再需要 windeployqt。
+
 ## 第三方组件
 
 - MuPDF 1.28（AGPLv3）——文档解析与渲染，内置 cmark-gfm 提供 Markdown 支持
