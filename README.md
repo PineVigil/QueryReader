@@ -32,6 +32,10 @@
 build.bat
 ```
 
+> **路径配置**：Qt 与 CMake 的安装路径统一放在项目根 `paths.txt` 中
+> （`QT_PREFIX`、`CMAKE_EXE`），构建脚本与 CMake 都会读取它。
+> 换到别的机器只需编辑这一个文件，无需改动 `build.bat` 或 `CMakeLists.txt`。
+
 产物：`build\Release\QueryReader.exe`。
 
 > 说明：MuPDF 以静态库形式使用（Release，/MD），因此工程必须用 **Release** 配置链接。若需重编 MuPDF，用 `third_party/mupdf/platform/win32/mupdf.sln`（MSBuild 时加 `/p:PlatformToolset=v143`）。

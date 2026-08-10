@@ -1,0 +1,12 @@
+# QueryReader - user local configuration
+# Only edit this file when your tool paths differ from the defaults.
+# Key=Value, one per line. Lines starting with # are comments.
+#
+# QT_PREFIX : root directory of your Qt 6.5.3 (msvc2019_64) installation,
+#             using forward slashes (CMake needs them).
+QT_PREFIX=D:/app/qt/6.5.3/msvc2019_64
+
+# CMAKE_EXE : full path to the cmake.exe bundled with Visual Studio 2022.
+#             Typical: C:\Program Files\Microsoft Visual Studio\2022\Community\
+#                      Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe
+CMAKE_EXE=D:\Program FilesMicrosoft Visual Studio2022Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe

@@ -1,8 +1,23 @@
 cmake_minimum_required(VERSION 3.19)
 
-# Qt 6.5.3 msvc2019_64 (ABI 兼容 VS2022 MSVC)
+# Qt 6.5.3 msvc2019_64 等本地路径统一从项目根 paths.txt 读取
+# （构建者只需编辑 paths.txt 一处即可，无需改动本文件）
+set(_PATHS_FILE ${CMAKE_CURRENT_SOURCE_DIR}/paths.txt)
+set(QT_PREFIX "")
+if(EXISTS ${_PATHS_FILE})
+    file(STRINGS ${_PATHS_FILE} _PATHS_LINES)
+    foreach(_line IN LISTS _PATHS_LINES)
+        if(_line MATCHES "^[ \t]*QT_PREFIX[ \t]*=[ \t]*(.*)$")
+            set(QT_PREFIX "${CMAKE_MATCH_1}")
+        endif()
+    endforeach()
+endif()
+if(NOT QT_PREFIX)
+    message(FATAL_ERROR "QT_PREFIX not found in paths.txt. "
+        "Create/edit paths.txt (see paths.txt comments) before building.")
+endif()
 set(CMAKE_PREFIX_PATH
-    "D:/app/qt/6.5.3/msvc2019_64"
+    "${QT_PREFIX}"
     ${CMAKE_PREFIX_PATH}
 )
 

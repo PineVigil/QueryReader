@@ -11,6 +11,17 @@ set SOURCE_DIR=%SOURCE_DIR:~0,-1%
 set BUILD_DIR=%SOURCE_DIR%\build
 set CMAKE_EXE=D:\Program FilesMicrosoft Visual Studio2022Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe
 
+REM ============================================
+REM  Load user-local paths from paths.txt
+REM  (QT_PREFIX, CMAKE_EXE). Edit paths.txt only!
+REM ============================================
+if exist "%SOURCE_DIR%\paths.txt" (
+    for /f "usebackq tokens=1,* delims==" %%a in ("%SOURCE_DIR%\paths.txt") do (
+        if /i "%%a"=="QT_PREFIX" set "QT_PATH=%%b"
+        if /i "%%a"=="CMAKE_EXE" set "CMAKE_EXE=%%b"
+    )
+)
+
 echo [1/3] Configuring CMake (Visual Studio 2022 generator)...
 "%CMAKE_EXE%" -S "%SOURCE_DIR%" -B "%BUILD_DIR%" -G "Visual Studio 17 2022" -A x64 "-DCMAKE_PREFIX_PATH=%QT_PATH%"
 if errorlevel 1 (
